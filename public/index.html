@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Code Editor - Go Backend</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            width: 96vw;
+            height: 92vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        select {
+            padding: 0.6rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        select option {
+            background: #667eea;
+            color: white;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status.connected .status-indicator {
+            background: #10b981;
+        }
+
+        .status.disconnected .status-indicator {
+            background: #ef4444;
+        }
+
+        .status.connecting .status-indicator {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .editor-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            border: 1px solid #e5e7eb;
+        }
+
+        #editor {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 340px;
+            background: #f8fafc;
+            border-left: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel {
+            padding: 1.25rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .panel h3 {
+            margin-bottom: 0.75rem;
+            color: #374151;
+            font-size: 0.95rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+
+        .user-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .output-panel {
+            flex: 1;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .output-content {
+            flex: 1;
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 10px;
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 0.875rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .output-content.success {
+            color: #10b981;
+        }
+
+        .output-content.error {
+            color: #ef4444;
+        }
+
+        .output-info {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal h2 {
+            margin-bottom: 1.5rem;
+            color: #1f2937;
+            font-size: 1.5rem;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        .modal input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 1.1rem;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 280px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #e5e7eb;
+                max-height: 40vh;
+            }
+
+            .toolbar {
+                gap: 0.5rem;
+            }
+
+            .btn {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            animation: slideInRight 0.3s ease;
+            z-index: 2000;
+            max-width: 350px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .notification.success {
+            border-left: 4px solid #10b981;
+        }
+
+        .notification.error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .notification.info {
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>
+                    <span>🚀</span> Collaborative Code Editor
+                    <span class="badge">Go Backend</span>
+                </h1>
+            </div>
+            <div class="toolbar">
+                <select id="languageSelect">
+                    <option value="javascript">JavaScript</option>
+                    <option value="python">Python</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                </select>
+                <button class="btn btn-success" id="runBtn">▶️ Run Code</button>
+                <button class="btn btn-primary" id="shareBtn">🔗 Share</button>
+                <button class="btn btn-primary" id="clearBtn">🗑️ Clear</button>
+                <div class="status connecting" id="connectionStatus">
+                    <div class="status-indicator"></div>
+                    <span>Connecting...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="editor-section">
+                <div class="editor-tabs">
+                    <div class="tab active">Code Editor</div>
+                </div>
+                <div class="editor-container">
+                    <div id="editor" class="loading">
+                        <div class="spinner"></div>
+                        Loading Monaco Editor...
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <h3>👥 Active Users (<span id="userCount">0</span>)</h3>
+                    <div class="user-list" id="userList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+
+                <div class="output-panel">
+                    <div class="output-header">
+                        <h3>📝 Output</h3>
+                        <button class="btn btn-primary" id="clearOutputBtn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Clear</button>
+                    </div>
+                    <div class="output-content" id="outputContent">Click "Run Code" to execute your code...</div>
+                    <div class="output-info" id="outputInfo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for joining code space -->
+    <div class="modal" id="joinModal">
+        <div class="modal-content">
+            <h2>🎉 Welcome to Collaborative Coding!</h2>
+            <p style="margin-bottom: 1.5rem; color: #64748b;">Join an existing session or create a new one</p>
+            <input type="text" id="codeSpaceInput" placeholder="Enter Code Space ID (optional)">
+            <div class="modal-buttons">
+                <button class="btn btn-primary" id="createNewBtn">Create New Session</button>
+                <button class="btn btn-success" id="joinBtn">Join Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class CollaborativeCodeEditor {
+            constructor() {
+                this.ws = null;
+                this.editor = null;
+                this.currentCodeSpaceId = null;
+                this.userId = null;
+                this.users = new Map();
+                this.isLocalChange = false;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                this.reconnectDelay = 1000;
+
+                this.initializeUI();
+                this.setupEventListeners();
+                this.showJoinModal();
+            }
+
+            initializeUI() {
+                require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+                require(['vs/editor/editor.main'], () => {
+                    this.initializeEditor();
+                });
+            }
+
+            initializeEditor() {
+                this.editor = monaco.editor.create(document.getElementById('editor'), {
+                    value: '// Welcome to the Collaborative Code Editor powered by Go!\n// Start typing to collaborate in real-time\n\nconsole.log("Hello, World!");',
+                    language: 'javascript',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    cursorBlinking: 'smooth',
+                    smoothScrolling: true,
+                    tabSize: 2,
+                });
+
+                this.editor.onDidChangeModelContent((e) => {
+                    if (!this.isLocalChange && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.sendCodeChange();
+                    }
+                });
+
+                this.editor.onDidChangeCursorPosition((e) => {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.sendCursorUpdate(e.position);
+                    }
+                });
+
+                // Add keyboard shortcuts
+                this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+                    this.executeCode();
+                });
+            }
+
+            setupEventListeners() {
+                document.getElementById('runBtn').addEventListener('click', () => this.executeCode());
+                document.getElementById('shareBtn').addEventListener('click', () => this.shareCodeSpace());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearEditor());
+                document.getElementById('clearOutputBtn').addEventListener('click', () => this.clearOutput());
+                
+                document.getElementById('languageSelect').addEventListener('change', (e) => {
+                    this.changeLanguage(e.target.value);
+                });
+
+                document.getElementById('createNewBtn').addEventListener('click', () => this.createNewCodeSpace());
+                document.getElementById('joinBtn').addEventListener('click', () => {
+                    const codeSpaceId = document.getElementById('codeSpaceInput').value.trim();
+                    if (codeSpaceId) {
+                        this.joinCodeSpace(codeSpaceId);
+                    } else {
+                        this.createNewCodeSpace();
+                    }
+                });
+
+                // Handle Enter key in input
+                document.getElementById('codeSpaceInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        document.getElementById('joinBtn').click();
+                    }
+                });
+            }
+
+            showJoinModal() {
+                document.getElementById('joinModal').classList.remove('hidden');
+            }
+
+            hideJoinModal() {
+                document.getElementById('joinModal').classList.add('hidden');
+            }
+
+            async createNewCodeSpace() {
+                try {
+                    const response = await fetch('/api/codespace', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language: 'javascript' })
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to create code space');
+                    
+                    const data = await response.json();
+                    this.showNotification('Session created successfully!', 'success');
+                    this.joinCodeSpace(data.codeSpaceId);
+                } catch (error) {
+                    console.error('Error creating code space:', error);
+                    this.showNotification('Failed to create session', 'error');
+                }
+            }
+
+            connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                
+                this.updateConnectionStatus('connecting');
+                this.ws = new WebSocket(wsUrl);
+                
+                this.ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    this.updateConnectionStatus('connected');
+                    this.reconnectAttempts = 0;
+                };
+
+                this.ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        this.handleMessage(message);
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                };
+
+                this.ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    this.updateConnectionStatus('disconnected');
+                    this.attemptReconnect();
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.updateConnectionStatus('disconnected');
+                };
+            }
+
+            attemptReconnect() {
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.reconnectAttempts++;
+                    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+                    
+                    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                    
+                    setTimeout(() => {
+                        this.connectWebSocket();
+                        if (this.currentCodeSpaceId) {
+                            setTimeout(() => this.rejoinCodeSpace(), 1000);
+                        }
+                    }, delay);
+                } else {
+                    this.showNotification('Connection lost. Please refresh the page.', 'error');
+                }
+            }
+
+            rejoinCodeSpace() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'join_codespace',
+                        codeSpaceId: this.currentCodeSpaceId
+                    }));
+                }
+            }
+
+            joinCodeSpace(codeSpaceId) {
+                this.currentCodeSpaceId = codeSpaceId;
+                this.hideJoinModal();
+                
+                if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                    this.connectWebSocket();
+                }
+
+                const checkConnection = () => {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: 'join_codespace',
+                            codeSpaceId: codeSpaceId
+                        }));
+                        
+                        // Update URL with code space ID
+                        const url = new URL(window.location);
+                        url.searchParams.set('codeSpace', codeSpaceId);
+                        window.history.pushState({}, '', url);
+                    } else {
+                        setTimeout(checkConnection, 100);
+                    }
+                };
+                checkConnection();
+            }
+
+            handleMessage(message) {
+                switch (message.type) {
+                    case 'connected':
+                        this.userId = message.userId;
+                        console.log('Connected with user ID:', this.userId);
+                        break;
+
+                    case 'code_sync':
+                        this.isLocalChange = true;
+                        this.editor.setValue(message.code);
+                        monaco.editor.setModelLanguage(this.editor.getModel(), message.language);
+                        document.getElementById('languageSelect').value = message.language;
+                        this.isLocalChange = false;
+                        this.updateUserList(message.users);
+                        break;
+
+                    case 'code_update':
+                        if (message.userId !== this.userId) {
+                            this.isLocalChange = true;
+                            this.editor.setValue(message.code);
+                            this.isLocalChange = false;
+                        }
+                        break;
+
+                    case 'user_joined':
+                        this.updateUserList(message.users);
+                        this.showNotification(`User joined the session`, 'info');
+                        break;
+
+                    case 'user_left':
+                        this.updateUserList(message.users);
+                        this.showNotification(`User left the session`, 'info');
+                        break;
+
+                    case 'execution_started':
+                        this.displayOutput('⏳ Executing code...', false);
+                        break;
+
+                    case 'execution_result':
+                        this.displayExecutionResult(message);
+                        break;
+
+                    case 'language_changed':
+                        if (message.userId !== this.userId) {
+                            monaco.editor.setModelLanguage(this.editor.getModel(), message.language);
+                            document.getElementById('languageSelect').value = message.language;
+                            this.showNotification(`Language changed to ${message.language}`, 'info');
+                        }
+                        break;
+
+                    case 'error':
+                        this.showNotification(message.message, 'error');
+                        break;
+                }
+            }
+
+            sendCodeChange() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'code_change',
+                        code: this.editor.getValue()
+                    }));
+                }
+            }
+
+            sendCursorUpdate(position) {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'cursor_update',
+                        cursor: {
+                            line: position.lineNumber,
+                            column: position.column
+                        }
+                    }));
+                }
+            }
+
+            executeCode() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'execute_code'
+                    }));
+                } else {
+                    this.showNotification('Not connected to server', 'error');
+                }
+            }
+
+            changeLanguage(language) {
+                if (this.editor) {
+                    monaco.editor.setModelLanguage(this.editor.getModel(), language);
+                    
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: 'language_change',
+                            language: language
+                        }));
+                    }
+                }
+            }
+
+            shareCodeSpace() {
+                if (this.currentCodeSpaceId) {
+                    const shareUrl = `${window.location.origin}?codeSpace=${this.currentCodeSpaceId}`;
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        this.showNotification('Share URL copied to clipboard!', 'success');
+                    }).catch(() => {
+                        prompt('Copy this URL to share:', shareUrl);
+                    });
+                }
+            }
+
+            clearEditor() {
+                if (confirm('Clear all code? This will affect all users in the session.')) {
+                    this.editor.setValue('');
+                }
+            }
+
+            clearOutput() {
+                document.getElementById('outputContent').textContent = 'Output cleared.';
+                document.getElementById('outputInfo').textContent = '';
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.className = `status ${status}`;
+                
+                const statusText = statusElement.querySelector('span');
+                switch (status) {
+                    case 'connected':
+                        statusText.textContent = 'Connected';
+                        break;
+                    case 'disconnected':
+                        statusText.textContent = 'Disconnected';
+                        break;
+                    case 'connecting':
+                        statusText.textContent = 'Connecting...';
+                        break;
+                }
+            }
+
+            updateUserList(users) {
+                const userListElement = document.getElementById('userList');
+                const userCountElement = document.getElementById('userCount');
+                
+                userListElement.innerHTML = '';
+                userCountElement.textContent = users.length;
+
+                users.forEach((userId, index) => {
+                    const userItem = document.createElement('div');
+                    userItem.className = 'user-item';
+                    
+                    const avatar = document.createElement('div');
+                    avatar.className = 'user-avatar';
+                    avatar.style.backgroundColor = this.getUserColor(userId);
+                    avatar.textContent = this.getUserInitial(userId, index);
+                    
+                    const userName = document.createElement('span');
+                    userName.className = 'user-name';
+                    userName.textContent = userId === this.userId ? 'You' : `User ${index + 1}`;
+                    
+                    userItem.appendChild(avatar);
+                    userItem.appendChild(userName);
+                    userListElement.appendChild(userItem);
+                    
+                    this.users.set(userId, {
+                        color: this.getUserColor(userId),
+                        name: userName.textContent
+                    });
+                });
+            }
+
+            displayOutput(output, success) {
+                const outputElement = document.getElementById('outputContent');
+                outputElement.textContent = output;
+                outputElement.className = `output-content ${success ? 'success' : 'error'}`;
+                outputElement.scrollTop = outputElement.scrollHeight;
+            }
+
+            displayExecutionResult(result) {
+                const outputElement = document.getElementById('outputContent');
+                const outputInfoElement = document.getElementById('outputInfo');
+                
+                if (result.success) {
+                    outputElement.textContent = result.output || '✓ Code executed successfully (no output)';
+                    outputElement.className = 'output-content success';
+                    
+                    outputInfoElement.innerHTML = `
+                        <div>⏱️ Execution Time: ${result.executionTime}ms</div>
+                        <div>💾 Memory: ${this.formatBytes(result.memoryUsage)}</div>
+                    `;
+                } else {
+                    const errorOutput = result.error || result.stderr || 'Execution failed';
+                    outputElement.textContent = `❌ Error:\n${errorOutput}`;
+                    outputElement.className = 'output-content error';
+                    outputInfoElement.textContent = '';
+                }
+                
+                outputElement.scrollTop = outputElement.scrollHeight;
+            }
+
+            formatBytes(bytes) {
+                if (!bytes) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+            }
+
+            getUserColor(userId) {
+                const colors = [
+                    '#667eea', '#764ba2', '#f093fb', '#4facfe',
+                    '#43e97b', '#fa709a', '#fee140', '#30cfd0',
+                    '#a8edea', '#fed6e3', '#c471f5', '#ff6b6b'
+                ];
+                
+                let hash = 0;
+                for (let i = 0; i < userId.length; i++) {
+                    const char = userId.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                
+                return colors[Math.abs(hash) % colors.length];
+            }
+
+            getUserInitial(userId, index) {
+                return String.fromCharCode(65 + (index % 26));
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOutRight 0.3s ease';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // Add slide out animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideOutRight {
+                from {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize the collaborative editor when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codeSpaceId = urlParams.get('codeSpace');
+            
+            const editor = new CollaborativeCodeEditor();
+            
+            if (codeSpaceId) {
+                setTimeout(() => {
+                    document.getElementById('codeSpaceInput').value = codeSpaceId;
+                    editor.joinCodeSpace(codeSpaceId);
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
