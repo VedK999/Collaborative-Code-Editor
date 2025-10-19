@@ -437,7 +437,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -457,7 +456,6 @@
             background: #94a3b8;
         }
 
-        /* Responsive design */
         @media (max-width: 1024px) {
             .sidebar {
                 width: 280px;
@@ -574,7 +572,6 @@
                 <div class="panel">
                     <h3>👥 Active Users (<span id="userCount">0</span>)</h3>
                     <div class="user-list" id="userList">
-                        <!-- Users will be populated here -->
                     </div>
                 </div>
 
@@ -590,7 +587,6 @@
         </div>
     </div>
 
-    <!-- Modal for joining code space -->
     <div class="modal" id="joinModal">
         <div class="modal-content">
             <h2>🎉 Welcome to Collaborative Coding!</h2>
@@ -656,7 +652,6 @@
                     }
                 });
 
-                // Add keyboard shortcuts
                 this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
                     this.executeCode();
                 });
@@ -1047,7 +1042,6 @@
             }
         }
 
-        // Add slide out animation
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideOutRight {
@@ -1063,7 +1057,6 @@
         `;
         document.head.appendChild(style);
 
-        // Initialize the collaborative editor when the page loads
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const codeSpaceId = urlParams.get('codeSpace');
